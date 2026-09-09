@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>本の要約&深掘りリサーチ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+  :root{
+    --bg: #FAF6F0;
+    --card: #FFFFFF;
+    --indigo: #33415C;
+    --indigo-deep: #212D42;
+    --coral: #E2704F;
+    --coral-soft: #F7E3DA;
+    --text: #2B3142;
+    --text-muted: #7B8296;
+    --border: #EAE3D8;
+    --ok: #3E8E5A;
+    --ok-soft: #E4F2E9;
+    --warn: #C98A1F;
+    --warn-soft: #FBEFD9;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    font-family: 'Noto Sans JP', sans-serif;
+    color: var(--text);
+    display:flex;
+    justify-content:center;
+    padding: 40px 16px 64px;
+    min-height: 100vh;
+  }
+  .wrap{ width:100%; max-width: 640px; }
+
+  .eyebrow{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    letter-spacing: .04em;
+  }
+  .eyebrow .dot{
+    width:6px;height:6px;border-radius:50%;
+    background: var(--coral);
+    display:inline-block;
+  }
+
+  h1{
+    font-family: 'Noto Serif JP', serif;
+    font-weight: 700;
+    font-size: 26px;
+    line-height: 1.5;
+    color: var(--indigo-deep);
+    margin: 0 0 8px;
+  }
+  h1 span{ color: var(--coral); }
+
+  .lead{
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.8;
+    margin: 0 0 24px;
+  }
+
+  .card{
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 26px 24px;
+    box-shadow: 0 12px 32px -20px rgba(33,45,66,0.25);
+    margin-bottom: 20px;
+  }
+
+  .card h2{
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--indigo-deep);
+    margin: 0 0 16px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  .field{ margin-bottom: 16px; }
+  .field:last-of-type{ margin-bottom: 0; }
+  label{
+    display:block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--indigo);
+    margin-bottom: 8px;
+  }
+  .input-row{
+    display:flex;
+    align-items:center;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0 14px;
+    background: #FCFAF6;
+    transition: border-color .15s ease;
+  }
+  .input-row:focus-within{ border-color: var(--coral); }
+  .input-row input, .input-row select{
+    flex:1;
+    border:none;
+    background: transparent;
+    padding: 12px 6px;
+    font-size: 15px;
+    font-family: 'Noto Sans JP', sans-serif;
+    color: var(--text);
+    outline: none;
+    min-width: 0;
+  }
+  .input-row button.ghost{
+    border:none;
+    background:transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor:pointer;
+    padding: 6px;
+    white-space:nowrap;
+  }
+  .input-row button.ghost:hover{ color: var(--indigo); }
+
+  .hint{
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin-top: 8px;
+  }
+  .hint a{ color: var(--coral); }
+
+  .settings-status{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--ok);
+    background: var(--ok-soft);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .settings-status button{
+    border:none;
+    background:transparent;
+    color: var(--indigo);
+    font-size: 12px;
+    text-decoration: underline;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+
+  button.primary{
+    width:100%;
+    margin-top: 22px;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: var(--indigo-deep);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    transition: background .15s ease, transform .1s ease;
+  }
+  button.primary:hover{ background: var(--indigo); }
+  button.primary:active{ transform: scale(0.99); }
+  button.primary:disabled{ opacity: 0.6; cursor: default; }
+
+  button.small{
+    border: 1px solid var(--border);
+    background: #FCFAF6;
+    color: var(--indigo);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  button.small:hover{ border-color: var(--coral); color: var(--coral); }
+
+  .status-box{
+    display:none;
+    align-items:center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-muted);
+    padding: 14px 4px;
+  }
+  .status-box.show{ display:flex; }
+  .spinner{
+    width:16px; height:16px;
+    border-radius:50%;
+    border: 2px solid var(--border);
+    border-top-color: var(--coral);
+    animation: spin .8s linear infinite;
+    flex-shrink:0;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  .error-box{
+    display:none;
+    background: #FBE7E2;
+    border: 1px solid #EFC1B4;
+    color: #A6402A;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.8;
+    margin-bottom: 20px;
+  }
+  .error-box.show{ display:block; }
+
+  .result{ display:none; animation: fadeUp .4s ease; }
+  .result.show{ display:block; }
+  @keyframes fadeUp{
+    from{ opacity:0; transform: translateY(6px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size: 11.5px;
+    font-weight: 500;
+    border-radius: 999px;
+    padding: 4px 10px;
+    margin-bottom: 14px;
+  }
+  .badge.ok{ background: var(--ok-soft); color: var(--ok); }
+  .badge.warn{ background: var(--warn-soft); color: var(--warn); }
+
+  .book-heading{
+    font-family: 'Noto Serif JP', serif;
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--indigo-deep);
+    margin: 0 0 4px;
+  }
+  .book-author{
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0 0 16px;
+  }
+
+  .summary-text{
+    font-size: 14px;
+    line-height: 1.9;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+
+  .themes{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .theme-chip{
+    background: var(--coral-soft);
+    color: var(--indigo-deep);
+    font-size: 12.5px;
+    font-weight: 500;
+    border-radius: 999px;
+    padding: 6px 12px;
+  }
+
+  details.chapter{
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  details.chapter:last-of-type{ margin-bottom:0; }
+  details.chapter summary{
+    list-style:none;
+    cursor:pointer;
+    padding: 14px 16px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--indigo-deep);
+    background: #FCFAF6;
+  }
+  details.chapter summary::-webkit-details-marker{ display:none; }
+  details.chapter summary .num{
+    color: var(--coral);
+    font-family:'Noto Serif JP', serif;
+    font-weight:700;
+    flex-shrink:0;
+  }
+  details.chapter summary .chev{
+    margin-left:auto;
+    color: var(--text-muted);
+    transition: transform .15s ease;
+    flex-shrink:0;
+  }
+  details.chapter[open] summary .chev{ transform: rotate(90deg); }
+  details.chapter .chapter-body{
+    padding: 4px 16px 16px 40px;
+    font-size: 13.5px;
+    line-height: 1.85;
+    color: var(--text);
+  }
+
+  .rec-card{
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: #FCFAF6;
+  }
+  .rec-card:last-of-type{ margin-bottom:0; }
+  .rec-title{
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--indigo-deep);
+    margin: 0 0 2px;
+  }
+  .rec-author{
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 0 0 8px;
+  }
+  .rec-reason{
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text);
+    margin: 0 0 10px;
+  }
+  .rec-search{
+    font-size: 12px;
+    color: var(--coral);
+    text-decoration: none;
+  }
+  .rec-search:hover{ text-decoration: underline; }
+
+  .section-title{
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--indigo);
+    margin: 28px 0 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .section-title .dot{
+    width:6px;height:6px;border-radius:50%;
+    background: var(--coral);
+    display:inline-block;
+  }
+
+  .actions-row{
+    display:flex;
+    gap:8px;
+    margin-top: 20px;
+  }
+
+  .disclaimer{
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.8;
+    background: var(--coral-soft);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 20px;
+  }
+
+  .foot{
+    text-align:center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 22px;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow"><span class="dot"></span>読書サポートツール</div>
+  <h1>本のタイトルを入れるだけ、<br><span>章ごとの要約</span>と深掘りが手に入る。</h1>
+  <p class="lead">タイトルと著者名を入力すると、AIが章ごとの要約・本全体の要約・関連するおすすめ書籍をまとめて作成します。</p>
+
+  <div class="card" id="settingsCard">
+    <h2>① Claude APIキーの設定</h2>
+    <div id="settingsForm">
+      <div class="field">
+        <label for="apiKey">Claude APIキー</label>
+        <div class="input-row">
+          <input type="password" id="apiKey" placeholder="sk-ant-...">
+          <button class="ghost" id="toggleKeyBtn" type="button">表示</button>
+        </div>
+        <p class="hint">APIキーはこのブラウザ内だけに保存され、送信先はAnthropic社のAPIのみです(このアプリのサーバーは経由しません)。お持ちでない方は<a href="https://console.anthropic.com/" target="_blank" rel="noopener">Anthropic Console</a>で発行できます。利用にはAPI利用料がかかります。</p>
+      </div>
+      <div class="field">
+        <label for="modelSelect">利用するモデル</label>
+        <div class="input-row">
+          <select id="modelSelect">
+            <option value="claude-sonnet-5">Claude Sonnet 5(標準・おすすめ)</option>
+            <option value="claude-opus-5">Claude Opus 5(高精度・やや高コスト)</option>
+            <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5(高速・低コスト)</option>
+          </select>
+        </div>
+      </div>
+      <button class="small" id="saveKeyBtn" type="button">このブラウザに保存する</button>
+    </div>
+    <div class="settings-status" id="settingsStatus" style="display:none;">
+      <span>✓ APIキー設定済み</span>
+      <button id="editKeyBtn" type="button">変更・削除する</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 調べたい本を入力</h2>
+    <div class="field">
+      <label for="bookTitle">本のタイトル</label>
+      <div class="input-row">
+        <input type="text" id="bookTitle" placeholder="例：影響力の武器">
+      </div>
+    </div>
+    <div class="field">
+      <label for="bookAuthor">著者名(任意・入れると精度が上がります)</label>
+      <div class="input-row">
+        <input type="text" id="bookAuthor" placeholder="例：ロバート・チャルディーニ">
+      </div>
+    </div>
+
+    <button class="primary" id="generateBtn" type="button">要約と深掘りを生成する</button>
+
+    <div class="status-box" id="statusBox">
+      <span class="spinner"></span>
+      <span id="statusText">AIが本を読み解いています…(1分ほどかかる場合があります)</span>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="result" id="result">
+    <div class="card">
+      <span class="badge" id="confirmBadge"></span>
+      <p class="book-heading" id="resTitle"></p>
+      <p class="book-author" id="resAuthor"></p>
+      <div class="summary-text" id="resSummary"></div>
+      <div class="themes" id="resThemes"></div>
+
+      <div class="section-title"><span class="dot"></span>章ごとの要約</div>
+      <div id="resChapters"></div>
+
+      <div class="section-title"><span class="dot"></span>あわせて読みたい関連書籍</div>
+      <div id="resRecs"></div>
+
+      <div class="actions-row">
+        <button class="small" id="copyBtn" type="button">要約をコピーする</button>
+      </div>
+
+      <div class="disclaimer">この要約・推薦はAIによる生成です。書籍の実際の内容と異なる場合があります。読了の代わりではなく、本を選ぶ・理解を深めるための参考としてご活用ください。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const LS_KEY = 'migiude_claude_api_key';
+const LS_MODEL = 'migiude_claude_model';
+
+const apiKeyInput = document.getElementById('apiKey');
+const modelSelect = document.getElementById('modelSelect');
+const settingsForm = document.getElementById('settingsForm');
+const settingsStatus = document.getElementById('settingsStatus');
+const toggleKeyBtn = document.getElementById('toggleKeyBtn');
+const saveKeyBtn = document.getElementById('saveKeyBtn');
+const editKeyBtn = document.getElementById('editKeyBtn');
+const generateBtn = document.getElementById('generateBtn');
+const statusBox = document.getElementById('statusBox');
+const statusText = document.getElementById('statusText');
+const errorBox = document.getElementById('errorBox');
+const resultBox = document.getElementById('result');
+const copyBtn = document.getElementById('copyBtn');
+
+function loadSettings(){
+  const savedKey = localStorage.getItem(LS_KEY);
+  const savedModel = localStorage.getItem(LS_MODEL);
+  if(savedModel){ modelSelect.value = savedModel; }
+  if(savedKey){
+    apiKeyInput.value = savedKey;
+    settingsForm.style.display = 'none';
+    settingsStatus.style.display = 'flex';
+  } else {
+    settingsForm.style.display = 'block';
+    settingsStatus.style.display = 'none';
+  }
+}
+
+toggleKeyBtn.addEventListener('click', function(){
+  const isPw = apiKeyInput.type === 'password';
+  apiKeyInput.type = isPw ? 'text' : 'password';
+  toggleKeyBtn.textContent = isPw ? '隠す' : '表示';
+});
+
+saveKeyBtn.addEventListener('click', function(){
+  const key = apiKeyInput.value.trim();
+  if(!key){
+    alert('APIキーを入力してください。');
+    return;
+  }
+  localStorage.setItem(LS_KEY, key);
+  localStorage.setItem(LS_MODEL, modelSelect.value);
+  settingsForm.style.display = 'none';
+  settingsStatus.style.display = 'flex';
+});
+
+editKeyBtn.addEventListener('click', function(){
+  settingsForm.style.display = 'block';
+  settingsStatus.style.display = 'none';
+});
+
+modelSelect.addEventListener('change', function(){
+  if(localStorage.getItem(LS_KEY)){
+    localStorage.setItem(LS_MODEL, modelSelect.value);
+  }
+});
+
+loadSettings();
+
+function showError(msg){
+  errorBox.textContent = msg;
+  errorBox.classList.add('show');
+}
+function hideError(){
+  errorBox.classList.remove('show');
+  errorBox.textContent = '';
+}
+
+function buildPrompt(title, author){
+  const authorLine = author ? `著者: ${author}` : '著者: (不明・タイトルから推定してください)';
+  return [
+    'あなたは読書サポートの専門家です。以下の書籍について、日本語で情報を整理してください。',
+    `書籍タイトル: ${title}`,
+    authorLine,
+    '',
+    '次のJSON形式のみで出力してください。説明文やコードフェンス(```)は一切付けないでください。',
+    '{',
+    '  "book_confirmed": true または false (この本の内容をある程度正確に把握できているかどうか),',
+    '  "resolved_title": "確認できた正式なタイトル",',
+    '  "resolved_author": "確認できた著者名",',
+    '  "overall_summary": "本全体の要約。400字前後。",',
+    '  "key_themes": ["キーワード1", "キーワード2", "キーワード3"] (3〜5個),',
+    '  "chapters": [ { "chapter_title": "章タイトルまたは章番号", "summary": "その章の要約。150〜250字程度。" } ] (実際の章構成に沿って作成。章が多い場合は主要な章に絞り最大15項目まで),',
+    '  "related_books": [ { "title": "書籍名", "author": "著者名", "reason": "なぜこの本の次に読むと理解が深まるか。80字前後。" } ] (4〜6冊)',
+    '}',
+    '',
+    'この本の内容について確信が持てない場合は book_confirmed を false にし、overall_summary の冒頭に「一般的に知られている情報からの推測です」と明記した上で、可能な範囲で最善の情報を記載してください。内容を捏造せず、不確かな点は正直に示してください。'
+  ].join('\n');
+}
+
+function extractJson(text){
+  let t = text.trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if(fence){ t = fence[1].trim(); }
+  const start = t.indexOf('{');
+  const end = t.lastIndexOf('}');
+  if(start === -1 || end === -1){ throw new Error('JSON形式の応答が見つかりませんでした。'); }
+  return JSON.parse(t.slice(start, end + 1));
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
+function renderResult(data, fallbackTitle, fallbackAuthor){
+  const confirmBadge = document.getElementById('confirmBadge');
+  if(data.book_confirmed){
+    confirmBadge.className = 'badge ok';
+    confirmBadge.textContent = '✓ 内容を把握して生成';
+  } else {
+    confirmBadge.className = 'badge warn';
+    confirmBadge.textContent = '⚠ 推測を含む可能性あり';
+  }
+
+  document.getElementById('resTitle').textContent = data.resolved_title || fallbackTitle;
+  document.getElementById('resAuthor').textContent = data.resolved_author || fallbackAuthor || '著者不明';
+  document.getElementById('resSummary').textContent = data.overall_summary || '';
+
+  const themesEl = document.getElementById('resThemes');
+  themesEl.innerHTML = '';
+  (data.key_themes || []).forEach(function(theme){
+    const chip = document.createElement('span');
+    chip.className = 'theme-chip';
+    chip.textContent = theme;
+    themesEl.appendChild(chip);
+  });
+
+  const chaptersEl = document.getElementById('resChapters');
+  chaptersEl.innerHTML = '';
+  (data.chapters || []).forEach(function(ch, i){
+    const details = document.createElement('details');
+    details.className = 'chapter';
+    if(i === 0){ details.open = true; }
+    details.innerHTML = `
+      <summary>
+        <span class="num">${i + 1}</span>
+        <span>${escapeHtml(ch.chapter_title || ('第' + (i + 1) + '章'))}</span>
+        <span class="chev">›</span>
+      </summary>
+      <div class="chapter-body">${escapeHtml(ch.summary || '')}</div>
+    `;
+    chaptersEl.appendChild(details);
+  });
+
+  const recsEl = document.getElementById('resRecs');
+  recsEl.innerHTML = '';
+  (data.related_books || []).forEach(function(rec){
+    const q = encodeURIComponent([rec.title, rec.author].filter(Boolean).join(' '));
+    const card = document.createElement('div');
+    card.className = 'rec-card';
+    card.innerHTML = `
+      <p class="rec-title">${escapeHtml(rec.title || '')}</p>
+      <p class="rec-author">${escapeHtml(rec.author || '')}</p>
+      <p class="rec-reason">${escapeHtml(rec.reason || '')}</p>
+      <a class="rec-search" href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">この本を検索する →</a>
+    `;
+    recsEl.appendChild(card);
+  });
+
+  resultBox.classList.add('show');
+  resultBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function generate(){
+  hideError();
+  resultBox.classList.remove('show');
+
+  const apiKey = (localStorage.getItem(LS_KEY) || apiKeyInput.value).trim();
+  const model = modelSelect.value;
+  const title = document.getElementById('bookTitle').value.trim();
+  const author = document.getElementById('bookAuthor').value.trim();
+
+  if(!apiKey){
+    showError('先にClaude APIキーを設定してください。');
+    return;
+  }
+  if(!title){
+    showError('本のタイトルを入力してください。');
+    return;
+  }
+
+  generateBtn.disabled = true;
+  statusBox.classList.add('show');
+  statusText.textContent = 'AIが本を読み解いています…(1分ほどかかる場合があります)';
+
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: buildPrompt(title, author) }]
+      })
+    });
+
+    if(!res.ok){
+      const errBody = await res.json().catch(function(){ return null; });
+      const msg = errBody && errBody.error && errBody.error.message ? errBody.error.message : ('HTTP ' + res.status);
+      if(res.status === 401){
+        throw new Error('APIキーが正しくないようです。キーを確認してください。(' + msg + ')');
+      }
+      if(res.status === 429){
+        throw new Error('APIの利用上限に達しました。しばらく待ってから再度お試しください。');
+      }
+      throw new Error('APIエラーが発生しました: ' + msg);
+    }
+
+    const json = await res.json();
+    const text = (json.content && json.content[0] && json.content[0].text) || '';
+    const data = extractJson(text);
+    renderResult(data, title, author);
+
+  } catch(err){
+    console.error(err);
+    showError(err.message || '生成中にエラーが発生しました。時間をおいて再度お試しください。');
+  } finally {
+    generateBtn.disabled = false;
+    statusBox.classList.remove('show');
+  }
+}
+
+generateBtn.addEventListener('click', generate);
+
+copyBtn.addEventListener('click', function(){
+  const title = document.getElementById('resTitle').textContent;
+  const author = document.getElementById('resAuthor').textContent;
+  const summary = document.getElementById('resSummary').textContent;
+  const chapters = Array.from(document.querySelectorAll('#resChapters .chapter-body')).map(function(el, i){
+    const heading = document.querySelectorAll('#resChapters summary span:nth-child(2)')[i];
+    return (heading ? heading.textContent : ('第' + (i + 1) + '章')) + '\n' + el.textContent;
+  }).join('\n\n');
+  const recs = Array.from(document.querySelectorAll('#resRecs .rec-card')).map(function(el){
+    const t = el.querySelector('.rec-title').textContent;
+    const a = el.querySelector('.rec-author').textContent;
+    const r = el.querySelector('.rec-reason').textContent;
+    return `・${t}(${a})\n  ${r}`;
+  }).join('\n');
+
+  const full = `【${title}】${author}\n\n■全体要約\n${summary}\n\n■章ごとの要約\n${chapters}\n\n■関連書籍\n${recs}`;
+
+  navigator.clipboard.writeText(full).then(function(){
+    copyBtn.textContent = 'コピーしました ✓';
+    setTimeout(function(){ copyBtn.textContent = '要約をコピーする'; }, 2000);
+  }).catch(function(){
+    alert('コピーに失敗しました。手動で選択してコピーしてください。');
+  });
+});
+</script>
+</body>
+</html>
