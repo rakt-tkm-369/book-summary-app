@@ -474,6 +474,35 @@
       <div class="disclaimer">この要約・推薦はAIによる生成です。書籍の実際の内容と異なる場合があります。読了の代わりではなく、本を選ぶ・理解を深めるための参考としてご活用ください。</div>
     </div>
   </div>
+
+  <div class="card">
+    <h2>③ ジャンル・キーワードでおすすめの本を探す</h2>
+    <div class="field">
+      <label for="genreInput">興味のあるジャンル・テーマ・キーワード</label>
+      <div class="input-row">
+        <input type="text" id="genreInput" placeholder="例：行動経済学、習慣化、マーケティング">
+      </div>
+      <p class="hint">複数のキーワードはカンマや読点で区切ってOK。</p>
+    </div>
+
+    <button class="primary" id="genreSearchBtn" type="button">おすすめの本を探す</button>
+
+    <div class="status-box" id="genreStatusBox">
+      <span class="spinner"></span>
+      <span id="genreStatusText">AIがおすすめを探しています…</span>
+    </div>
+  </div>
+
+  <div class="error-box" id="genreErrorBox"></div>
+
+  <div class="result" id="genreResult">
+    <div class="card">
+      <div class="section-title" style="margin-top:0;"><span class="dot"></span>おすすめの本</div>
+      <div id="genreRecs"></div>
+
+      <div class="disclaimer">このおすすめはAIによる生成です。実在しない書籍が混じる場合があるため、購入・利用前に必ず書名で検索して実在確認をしてください。</div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -594,13 +623,13 @@ editKeyBtn.addEventListener('click', function(){
 
 loadSettings();
 
-function showError(msg){
-  errorBox.textContent = msg;
-  errorBox.classList.add('show');
+function showError(box, msg){
+  box.textContent = msg;
+  box.classList.add('show');
 }
-function hideError(){
-  errorBox.classList.remove('show');
-  errorBox.textContent = '';
+function hideError(box){
+  box.classList.remove('show');
+  box.textContent = '';
 }
 
 function buildPrompt(title, author){
@@ -639,6 +668,22 @@ function escapeHtml(str){
   const div = document.createElement('div');
   div.textContent = str == null ? '' : String(str);
   return div.innerHTML;
+}
+
+function renderRecCards(container, books){
+  container.innerHTML = '';
+  (books || []).forEach(function(rec){
+    const q = encodeURIComponent([rec.title, rec.author].filter(Boolean).join(' '));
+    const card = document.createElement('div');
+    card.className = 'rec-card';
+    card.innerHTML = `
+      <p class="rec-title">${escapeHtml(rec.title || '')}</p>
+      <p class="rec-author">${escapeHtml(rec.author || '')}</p>
+      <p class="rec-reason">${escapeHtml(rec.reason || '')}</p>
+      <a class="rec-search" href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">この本を検索する →</a>
+    `;
+    container.appendChild(card);
+  });
 }
 
 function renderResult(data, fallbackTitle, fallbackAuthor){
@@ -681,20 +726,7 @@ function renderResult(data, fallbackTitle, fallbackAuthor){
     chaptersEl.appendChild(details);
   });
 
-  const recsEl = document.getElementById('resRecs');
-  recsEl.innerHTML = '';
-  (data.related_books || []).forEach(function(rec){
-    const q = encodeURIComponent([rec.title, rec.author].filter(Boolean).join(' '));
-    const card = document.createElement('div');
-    card.className = 'rec-card';
-    card.innerHTML = `
-      <p class="rec-title">${escapeHtml(rec.title || '')}</p>
-      <p class="rec-author">${escapeHtml(rec.author || '')}</p>
-      <p class="rec-reason">${escapeHtml(rec.reason || '')}</p>
-      <a class="rec-search" href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">この本を検索する →</a>
-    `;
-    recsEl.appendChild(card);
-  });
+  renderRecCards(document.getElementById('resRecs'), data.related_books);
 
   resultBox.classList.add('show');
   resultBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -733,25 +765,63 @@ function callOpenAI(apiKey, model, prompt){
   });
 }
 
-async function generate(){
-  hideError();
-  resultBox.classList.remove('show');
+function buildGenrePrompt(keywords){
+  return [
+    'あなたは読書サポートの専門家です。以下の興味・ジャンル・キーワードに基づいて、おすすめの本を提案してください。',
+    `興味・キーワード: ${keywords}`,
+    '',
+    '次のJSON形式のみで出力してください。説明文やコードフェンス(```)は一切付けないでください。',
+    '{',
+    '  "recommended_books": [ { "title": "書籍名", "author": "著者名", "reason": "なぜこの興味・キーワードに合うか、どんな人におすすめか。100字程度。" } ]',
+    '}',
+    '実在する書籍のみを挙げてください。日本語の本または日本語訳がある本を優先し、8〜10冊、なるべく異なる切り口・レベル(入門〜発展)になるようにしてください。'
+  ].join('\n');
+}
 
+async function callAIForPrompt(prompt){
   const provider = providerSelect.value;
   const conf = PROVIDERS[provider];
   const all = loadAllSettings();
   const saved = all[provider] || {};
   const apiKey = (saved.apiKey || apiKeyInput.value).trim();
   const model = (saved.model || modelInput.value || conf.defaultModel).trim();
+
+  if(!apiKey){
+    throw new Error('NEEDS_KEY:' + conf.label);
+  }
+
+  const res = provider === 'openai'
+    ? await callOpenAI(apiKey, model, prompt)
+    : await callAnthropic(apiKey, model, prompt);
+
+  if(!res.ok){
+    const errBody = await res.json().catch(function(){ return null; });
+    const msg = errBody && errBody.error && errBody.error.message ? errBody.error.message : ('HTTP ' + res.status);
+    if(res.status === 401){
+      throw new Error('APIキーが正しくないようです。キーを確認してください。(' + msg + ')');
+    }
+    if(res.status === 429){
+      throw new Error('APIの利用上限に達しました。しばらく待ってから再度お試しください。');
+    }
+    throw new Error('APIエラーが発生しました: ' + msg);
+  }
+
+  const json = await res.json();
+  const text = provider === 'openai'
+    ? ((json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '')
+    : ((json.content && json.content[0] && json.content[0].text) || '');
+  return extractJson(text);
+}
+
+async function generate(){
+  hideError(errorBox);
+  resultBox.classList.remove('show');
+
   const title = document.getElementById('bookTitle').value.trim();
   const author = document.getElementById('bookAuthor').value.trim();
 
-  if(!apiKey){
-    showError('先に' + conf.label + 'のAPIキーを設定してください。');
-    return;
-  }
   if(!title){
-    showError('本のタイトルを入力してください。');
+    showError(errorBox, '本のタイトルを入力してください。');
     return;
   }
 
@@ -760,33 +830,15 @@ async function generate(){
   statusText.textContent = 'AIが本を読み解いています…(1分ほどかかる場合があります)';
 
   try{
-    const prompt = buildPrompt(title, author);
-    const res = provider === 'openai'
-      ? await callOpenAI(apiKey, model, prompt)
-      : await callAnthropic(apiKey, model, prompt);
-
-    if(!res.ok){
-      const errBody = await res.json().catch(function(){ return null; });
-      const msg = errBody && errBody.error && errBody.error.message ? errBody.error.message : ('HTTP ' + res.status);
-      if(res.status === 401){
-        throw new Error('APIキーが正しくないようです。キーを確認してください。(' + msg + ')');
-      }
-      if(res.status === 429){
-        throw new Error('APIの利用上限に達しました。しばらく待ってから再度お試しください。');
-      }
-      throw new Error('APIエラーが発生しました: ' + msg);
-    }
-
-    const json = await res.json();
-    const text = provider === 'openai'
-      ? ((json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '')
-      : ((json.content && json.content[0] && json.content[0].text) || '');
-    const data = extractJson(text);
+    const data = await callAIForPrompt(buildPrompt(title, author));
     renderResult(data, title, author);
-
   } catch(err){
     console.error(err);
-    showError(err.message || '生成中にエラーが発生しました。時間をおいて再度お試しください。');
+    if(String(err.message).indexOf('NEEDS_KEY:') === 0){
+      showError(errorBox, '先に' + err.message.slice('NEEDS_KEY:'.length) + 'のAPIキーを設定してください。');
+    } else {
+      showError(errorBox, err.message || '生成中にエラーが発生しました。時間をおいて再度お試しください。');
+    }
   } finally {
     generateBtn.disabled = false;
     statusBox.classList.remove('show');
@@ -794,6 +846,48 @@ async function generate(){
 }
 
 generateBtn.addEventListener('click', generate);
+
+const genreInput = document.getElementById('genreInput');
+const genreSearchBtn = document.getElementById('genreSearchBtn');
+const genreStatusBox = document.getElementById('genreStatusBox');
+const genreStatusText = document.getElementById('genreStatusText');
+const genreErrorBox = document.getElementById('genreErrorBox');
+const genreResultBox = document.getElementById('genreResult');
+const genreRecsEl = document.getElementById('genreRecs');
+
+async function generateByGenre(){
+  hideError(genreErrorBox);
+  genreResultBox.classList.remove('show');
+
+  const keywords = genreInput.value.trim();
+  if(!keywords){
+    showError(genreErrorBox, 'ジャンルやキーワードを入力してください。');
+    return;
+  }
+
+  genreSearchBtn.disabled = true;
+  genreStatusBox.classList.add('show');
+  genreStatusText.textContent = 'AIがおすすめを探しています…';
+
+  try{
+    const data = await callAIForPrompt(buildGenrePrompt(keywords));
+    renderRecCards(genreRecsEl, data.recommended_books);
+    genreResultBox.classList.add('show');
+    genreResultBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch(err){
+    console.error(err);
+    if(String(err.message).indexOf('NEEDS_KEY:') === 0){
+      showError(genreErrorBox, '先に' + err.message.slice('NEEDS_KEY:'.length) + 'のAPIキーを設定してください。');
+    } else {
+      showError(genreErrorBox, err.message || '検索中にエラーが発生しました。時間をおいて再度お試しください。');
+    }
+  } finally {
+    genreSearchBtn.disabled = false;
+    genreStatusBox.classList.remove('show');
+  }
+}
+
+genreSearchBtn.addEventListener('click', generateByGenre);
 
 copyBtn.addEventListener('click', function(){
   const title = document.getElementById('resTitle').textContent;
