@@ -393,30 +393,37 @@
   <p class="lead">タイトルと著者名を入力すると、AIが章ごとの要約・本全体の要約・関連するおすすめ書籍をまとめて作成します。</p>
 
   <div class="card" id="settingsCard">
-    <h2>① Claude APIキーの設定</h2>
+    <h2>① AIプロバイダとAPIキーの設定</h2>
     <div id="settingsForm">
       <div class="field">
-        <label for="apiKey">Claude APIキー</label>
+        <label for="providerSelect">利用するAI</label>
         <div class="input-row">
-          <input type="password" id="apiKey" placeholder="sk-ant-...">
-          <button class="ghost" id="toggleKeyBtn" type="button">表示</button>
-        </div>
-        <p class="hint">APIキーはこのブラウザ内だけに保存され、送信先はAnthropic社のAPIのみです(このアプリのサーバーは経由しません)。お持ちでない方は<a href="https://console.anthropic.com/" target="_blank" rel="noopener">Anthropic Console</a>で発行できます。利用にはAPI利用料がかかります。</p>
-      </div>
-      <div class="field">
-        <label for="modelSelect">利用するモデル</label>
-        <div class="input-row">
-          <select id="modelSelect">
-            <option value="claude-sonnet-5">Claude Sonnet 5(標準・おすすめ)</option>
-            <option value="claude-opus-5">Claude Opus 5(高精度・やや高コスト)</option>
-            <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5(高速・低コスト)</option>
+          <select id="providerSelect">
+            <option value="anthropic">Claude(Anthropic)</option>
+            <option value="openai">ChatGPT(OpenAI)</option>
           </select>
         </div>
+      </div>
+      <div class="field">
+        <label for="apiKey" id="apiKeyLabel">APIキー</label>
+        <div class="input-row">
+          <input type="password" id="apiKey" placeholder="">
+          <button class="ghost" id="toggleKeyBtn" type="button">表示</button>
+        </div>
+        <p class="hint" id="apiKeyHint"></p>
+      </div>
+      <div class="field">
+        <label for="modelInput">利用するモデル</label>
+        <div class="input-row">
+          <input type="text" id="modelInput" list="modelDatalist">
+          <datalist id="modelDatalist"></datalist>
+        </div>
+        <p class="hint">最新の正式なモデル名は各社の公式ドキュメントでご確認ください。</p>
       </div>
       <button class="small" id="saveKeyBtn" type="button">このブラウザに保存する</button>
     </div>
     <div class="settings-status" id="settingsStatus" style="display:none;">
-      <span>✓ APIキー設定済み</span>
+      <span id="settingsStatusText">✓ APIキー設定済み</span>
       <button id="editKeyBtn" type="button">変更・削除する</button>
     </div>
   </div>
@@ -470,13 +477,45 @@
 </div>
 
 <script>
-const LS_KEY = 'migiude_claude_api_key';
-const LS_MODEL = 'migiude_claude_model';
+const LS_SETTINGS = 'book_summary_settings_v2';
 
+const PROVIDERS = {
+  anthropic: {
+    label: 'Claude',
+    keyPlaceholder: 'sk-ant-...',
+    defaultModel: 'claude-sonnet-5',
+    modelOptions: ['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5-20251001'],
+    hint: 'APIキーはこのブラウザ内だけに保存され、送信先はAnthropic社のAPIのみです(このアプリのサーバーは経由しません)。お持ちでない方は<a href="https://console.anthropic.com/" target="_blank" rel="noopener">Anthropic Console</a>で発行できます。利用にはAPI利用料がかかります。'
+  },
+  openai: {
+    label: 'ChatGPT',
+    keyPlaceholder: 'sk-...',
+    defaultModel: 'gpt-5',
+    modelOptions: ['gpt-5', 'gpt-5-mini', 'gpt-4.1'],
+    hint: 'APIキーはこのブラウザ内だけに保存され、送信先はOpenAI社のAPIのみです(このアプリのサーバーは経由しません)。お持ちでない方は<a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI Platform</a>で発行できます。利用にはAPI利用料がかかります。'
+  }
+};
+
+function loadAllSettings(){
+  try{
+    return JSON.parse(localStorage.getItem(LS_SETTINGS)) || {};
+  } catch(e){
+    return {};
+  }
+}
+function saveAllSettings(all){
+  localStorage.setItem(LS_SETTINGS, JSON.stringify(all));
+}
+
+const providerSelect = document.getElementById('providerSelect');
 const apiKeyInput = document.getElementById('apiKey');
-const modelSelect = document.getElementById('modelSelect');
+const apiKeyLabel = document.getElementById('apiKeyLabel');
+const apiKeyHint = document.getElementById('apiKeyHint');
+const modelInput = document.getElementById('modelInput');
+const modelDatalist = document.getElementById('modelDatalist');
 const settingsForm = document.getElementById('settingsForm');
 const settingsStatus = document.getElementById('settingsStatus');
+const settingsStatusText = document.getElementById('settingsStatusText');
 const toggleKeyBtn = document.getElementById('toggleKeyBtn');
 const saveKeyBtn = document.getElementById('saveKeyBtn');
 const editKeyBtn = document.getElementById('editKeyBtn');
@@ -487,19 +526,46 @@ const errorBox = document.getElementById('errorBox');
 const resultBox = document.getElementById('result');
 const copyBtn = document.getElementById('copyBtn');
 
-function loadSettings(){
-  const savedKey = localStorage.getItem(LS_KEY);
-  const savedModel = localStorage.getItem(LS_MODEL);
-  if(savedModel){ modelSelect.value = savedModel; }
-  if(savedKey){
-    apiKeyInput.value = savedKey;
+function currentProviderConfig(){
+  return PROVIDERS[providerSelect.value];
+}
+
+function applyProviderUI(){
+  const provider = providerSelect.value;
+  const conf = PROVIDERS[provider];
+  const all = loadAllSettings();
+  const saved = all[provider] || {};
+
+  apiKeyLabel.textContent = conf.label + ' APIキー';
+  apiKeyInput.placeholder = conf.keyPlaceholder;
+  apiKeyHint.innerHTML = conf.hint;
+
+  modelDatalist.innerHTML = conf.modelOptions.map(function(m){ return '<option value="' + m + '">'; }).join('');
+  modelInput.value = saved.model || conf.defaultModel;
+  apiKeyInput.value = saved.apiKey || '';
+
+  if(saved.apiKey){
     settingsForm.style.display = 'none';
     settingsStatus.style.display = 'flex';
+    settingsStatusText.textContent = '✓ ' + conf.label + '用 APIキー設定済み';
   } else {
     settingsForm.style.display = 'block';
     settingsStatus.style.display = 'none';
   }
 }
+
+function loadSettings(){
+  const all = loadAllSettings();
+  providerSelect.value = all.provider || 'anthropic';
+  applyProviderUI();
+}
+
+providerSelect.addEventListener('change', function(){
+  const all = loadAllSettings();
+  all.provider = providerSelect.value;
+  saveAllSettings(all);
+  applyProviderUI();
+});
 
 toggleKeyBtn.addEventListener('click', function(){
   const isPw = apiKeyInput.type === 'password';
@@ -513,21 +579,17 @@ saveKeyBtn.addEventListener('click', function(){
     alert('APIキーを入力してください。');
     return;
   }
-  localStorage.setItem(LS_KEY, key);
-  localStorage.setItem(LS_MODEL, modelSelect.value);
-  settingsForm.style.display = 'none';
-  settingsStatus.style.display = 'flex';
+  const provider = providerSelect.value;
+  const all = loadAllSettings();
+  all.provider = provider;
+  all[provider] = { apiKey: key, model: modelInput.value.trim() || currentProviderConfig().defaultModel };
+  saveAllSettings(all);
+  applyProviderUI();
 });
 
 editKeyBtn.addEventListener('click', function(){
   settingsForm.style.display = 'block';
   settingsStatus.style.display = 'none';
-});
-
-modelSelect.addEventListener('change', function(){
-  if(localStorage.getItem(LS_KEY)){
-    localStorage.setItem(LS_MODEL, modelSelect.value);
-  }
 });
 
 loadSettings();
@@ -638,17 +700,54 @@ function renderResult(data, fallbackTitle, fallbackAuthor){
   resultBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function callAnthropic(apiKey, model, prompt){
+  return fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: model,
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+}
+
+function callOpenAI(apiKey, model, prompt){
+  return fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    },
+    body: JSON.stringify({
+      model: model,
+      max_completion_tokens: 8000,
+      response_format: { type: 'json_object' },
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+}
+
 async function generate(){
   hideError();
   resultBox.classList.remove('show');
 
-  const apiKey = (localStorage.getItem(LS_KEY) || apiKeyInput.value).trim();
-  const model = modelSelect.value;
+  const provider = providerSelect.value;
+  const conf = PROVIDERS[provider];
+  const all = loadAllSettings();
+  const saved = all[provider] || {};
+  const apiKey = (saved.apiKey || apiKeyInput.value).trim();
+  const model = (saved.model || modelInput.value || conf.defaultModel).trim();
   const title = document.getElementById('bookTitle').value.trim();
   const author = document.getElementById('bookAuthor').value.trim();
 
   if(!apiKey){
-    showError('先にClaude APIキーを設定してください。');
+    showError('先に' + conf.label + 'のAPIキーを設定してください。');
     return;
   }
   if(!title){
@@ -661,20 +760,10 @@ async function generate(){
   statusText.textContent = 'AIが本を読み解いています…(1分ほどかかる場合があります)';
 
   try{
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 8000,
-        messages: [{ role: 'user', content: buildPrompt(title, author) }]
-      })
-    });
+    const prompt = buildPrompt(title, author);
+    const res = provider === 'openai'
+      ? await callOpenAI(apiKey, model, prompt)
+      : await callAnthropic(apiKey, model, prompt);
 
     if(!res.ok){
       const errBody = await res.json().catch(function(){ return null; });
@@ -689,7 +778,9 @@ async function generate(){
     }
 
     const json = await res.json();
-    const text = (json.content && json.content[0] && json.content[0].text) || '';
+    const text = provider === 'openai'
+      ? ((json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '')
+      : ((json.content && json.content[0] && json.content[0].text) || '');
     const data = extractJson(text);
     renderResult(data, title, author);
 
